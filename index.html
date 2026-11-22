@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚽ Голы Мундиаля — Экспертный режим</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: radial-gradient(circle at 50% 50%, #123a6b 0%, #0b1e3a 60%, #06101f 100%);
+    min-height: 100vh;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    position: relative;
+    overflow-y: auto;
+  }
+
+  /* ===== ФОНОВЫЙ МЯЧ ===== */
+  .bg-ball {
+    position: fixed;
+    width: 620px;
+    height: 620px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+    opacity: 0.09;
+    pointer-events: none;
+    animation: spin 40s linear infinite;
+    filter: blur(0.3px) drop-shadow(0 0 60px rgba(255,215,0,0.4));
+  }
+  @keyframes spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to   { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+  .bg-ball.floating {
+    animation: spin 40s linear infinite, floaty 8s ease-in-out infinite;
+  }
+  @keyframes floaty {
+    0%,100% { margin-top: 0; }
+    50%     { margin-top: -30px; }
+  }
+  .mini-ball {
+    position: fixed;
+    z-index: 0;
+    opacity: 0.06;
+    pointer-events: none;
+    animation: spin 25s linear infinite;
+  }
+  .mini-ball.b1 { width: 180px; height: 180px; top: -40px; left: -40px; }
+  .mini-ball.b2 { width: 140px; height: 140px; bottom: -30px; right: -30px; animation-direction: reverse; }
+  .mini-ball.b3 { width: 100px; height: 100px; top: 20%; right: 8%; animation-duration: 30s; }
+
+  /* ===== ИГРОВОЙ КОНТЕЙНЕР ===== */
+  .game {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 680px;
+    background: rgba(8, 22, 44, 0.78);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,215,0,0.25);
+    border-radius: 24px;
+    padding: 30px;
+    box-shadow: 0 20px 70px rgba(0,0,0,0.7), 0 0 40px rgba(255,215,0,0.08) inset;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  .game::-webkit-scrollbar { width: 8px; }
+  .game::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.3); border-radius: 4px; }
+  h1 {
+    text-align: center;
+    font-size: 1.6em;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg, #ffd700, #ffb300, #ffd700);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtitle {
+    text-align: center;
+    color: #9fb8d8;
+    font-size: 0.85em;
+    margin-bottom: 20px;
+  }
+  .difficulty-badge {
+    display: block;
+    width: fit-content;
+    margin: 0 auto 14px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    background: rgba(231,76,60,0.2);
+    border: 1px solid rgba(231,76,60,0.6);
+    color: #ff8a7a;
+    font-size: 0.75em;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .hud-box {
+    flex: 1;
+    background: rgba(0,0,0,0.35);
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .hud-box .label { font-size: 0.7em; color: #9fb8d8; text-transform: uppercase; letter-spacing: 1px; }
+  .hud-box .value { font-size: 1.4em; font-weight: 700; color: #ffd700; }
+  .progress {
+    height: 8px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #ffd700, #ff8c00);
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .question-card {
+    background: rgba(0,0,0,0.4);
+    border-radius: 18px;
+    padding: 22px;
+    margin-bottom: 18px;
+    border: 1px solid rgba(255,215,0,0.25);
+  }
+  .match-info {
+    font-size: 0.75em;
+    color: #ffb300;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .question-text {
+    font-size: 1.15em;
+    line-height: 1.5;
+    margin-bottom: 4px;
+  }
+  .hint {
+    font-size: 0.82em;
+    color: #9fb8d8;
+    font-style: italic;
+    margin-top: 8px;
+  }
+  .answers { display: grid; gap: 10px; }
+  .answer-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 14px 18px;
+    border-radius: 12px;
+    font-size: 1em;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .answer-btn:hover:not(:disabled) {
+    background: rgba(255,215,0,0.15);
+    border-color: #ffd700;
+    transform: translateX(4px);
+  }
+  .answer-btn:disabled { cursor: default; }
+  .answer-btn.correct {
+    background: rgba(46,204,113,0.3);
+    border-color: #2ecc71;
+    animation: pulse 0.5s;
+  }
+  .answer-btn.wrong {
+    background: rgba(231,76,60,0.3);
+    border-color: #e74c3c;
+  }
+  @keyframes pulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+  .feedback {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 0.9em;
+    display: none;
+    line-height: 1.5;
+  }
+  .feedback.show { display: block; }
+  .feedback.ok { background: rgba(46,204,113,0.15); border-left: 4px solid #2ecc71; }
+  .feedback.bad { background: rgba(231,76,60,0.15); border-left: 4px solid #e74c3c; }
+  .next-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #ffd700, #ff8c00);
+    color: #0b1e3a;
+    font-weight: 700;
+    font-size: 1em;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: none;
+  }
+  .next-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,215,0,0.4); }
+  .next-btn.show { display: block; }
+  .start-screen, .end-screen { text-align: center; }
+  .start-screen p, .end-screen p { color: #9fb8d8; margin: 12px 0; line-height: 1.6; }
+  .big-btn {
+    margin-top: 20px;
+    padding: 16px 40px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(90deg, #ffd700, #ff8c00);
+    color: #0b1e3a;
+    font-weight: 800;
+    font-size: 1.1em;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.15s;
+  }
+  .big-btn:hover { transform: scale(1.05); }
+  .score-big { font-size: 3em; font-weight: 800; color: #ffd700; margin: 10px 0; }
+  .medal { font-size: 4em; margin: 10px 0; }
+  .hidden { display: none !important; }
+  .facts { margin-top: 20px; font-size: 0.8em; color: #6c8ab0; text-align: center; }
+  .pool-info {
+    text-align: center;
+    font-size: 0.8em;
+    color: #ffb300;
+    margin-top: 8px;
+  }
+
+  /* ===== ТАБЛИЦА ЧЕМПИОНОВ ===== */
+  .champions {
+    margin-top: 22px;
+    text-align: left;
+    background: rgba(0,0,0,0.35);
+    border-radius: 14px;
+    padding: 14px;
+    border: 1px solid rgba(255,215,0,0.2);
+  }
+  .champions h3 {
+    text-align: center;
+    color: #ffd700;
+    font-size: 0.95em;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+  }
+  .champ-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 6px;
+  }
+  .champ-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 6px 4px;
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.72em;
+    transition: transform 0.15s;
+  }
+  .champ-item:hover { transform: scale(1.06); background: rgba(255,215,0,0.12); }
+  .champ-year { color: #ffb300; font-weight: 700; font-size: 0.95em; }
+  .champ-flag { font-size: 1.3em; line-height: 1.2; }
+  .champ-name { color: #cfe0f5; font-size: 0.72em; text-align: center; line-height: 1.1; }
+  .champ-item.gold { border-color: rgba(255,215,0,0.5); background: rgba(255,215,0,0.1); }
+
+  /* ===== ПЛАВАЮЩАЯ КНОПКА ТАБЛИЦЫ ===== */
+  .table-fab {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color: #0b1e3a;
+    font-size: 1.5em;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255,215,0,0.4);
+    transition: transform 0.15s;
+  }
+  .table-fab:hover { transform: scale(1.1); }
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .modal-content {
+    background: #0e2547;
+    border: 1px solid rgba(255,215,0,0.3);
+    border-radius: 20px;
+    padding: 24px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  .modal-content::-webkit-scrollbar { width: 8px; }
+  .modal-content::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.3); border-radius: 4px; }
+  .modal-close {
+    display: block;
+    margin: 16px auto 0;
+    padding: 12px 32px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #ffd700, #ff8c00);
+    color: #0b1e3a;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1em;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== ФОНОВЫЕ МЯЧИ ===== -->
+<svg class="bg-ball" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#ffffff" stroke-width="4"/>
+  <polygon points="100,45 125,63 115,93 85,93 75,63" fill="#ffffff"/>
+  <polygon points="100,45 125,63 145,50 130,25 100,20 70,25 55,50 75,63" fill="none" stroke="#ffffff" stroke-width="3"/>
+  <line x1="100" y1="45" x2="100" y2="8" stroke="#ffffff" stroke-width="3"/>
+  <line x1="125" y1="63" x2="165" y2="45" stroke="#ffffff" stroke-width="3"/>
+  <line x1="115" y1="93" x2="140" y2="135" stroke="#ffffff" stroke-width="3"/>
+  <line x1="85" y1="93" x2="60" y2="135" stroke="#ffffff" stroke-width="3"/>
+  <line x1="75" y1="63" x2="35" y2="45" stroke="#ffffff" stroke-width="3"/>
+  <polygon points="140,135 160,165 130,185 95,175 85,145 115,93" fill="none" stroke="#ffffff" stroke-width="3"/>
+  <polygon points="60,135 40,165 70,185 105,175 115,145 85,93" fill="none" stroke="#ffffff" stroke-width="3"/>
+  <line x1="140" y1="135" x2="185" y2="120" stroke="#ffffff" stroke-width="3"/>
+  <line x1="60" y1="135" x2="15" y2="120" stroke="#ffffff" stroke-width="3"/>
+  <line x1="130" y1="185" x2="110" y2="192" stroke="#ffffff" stroke-width="3"/>
+  <line x1="70" y1="185" x2="90" y2="192" stroke="#ffffff" stroke-width="3"/>
+</svg>
+<svg class="mini-ball b1" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#ffd700" stroke-width="6"/>
+  <polygon points="100,45 125,63 115,93 85,93 75,63" fill="#ffd700"/>
+</svg>
+<svg class="mini-ball b2" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#4da6ff" stroke-width="6"/>
+  <polygon points="100,45 125,63 115,93 85,93 75,63" fill="#4da6ff"/>
+</svg>
+<svg class="mini-ball b3" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#ffffff" stroke-width="6"/>
+  <polygon points="100,45 125,63 115,93 85,93 75,63" fill="#ffffff"/>
+</svg>
+
+<!-- Кнопка таблицы чемпионов -->
+<button class="table-fab" onclick="toggleChampionsModal()" title="Все чемпионы мира">🏆</button>
+
+<!-- Модалка с таблицей всех чемпионов -->
+<div class="modal hidden" id="champModal">
+  <div class="modal-content">
+    <h1>🏆 Все чемпионы мира</h1>
+    <p class="subtitle">1930 — 2022 · 22 турнира</p>
+    <div class="champ-grid" id="champGridModal"></div>
+    <button class="modal-close" onclick="toggleChampionsModal()">Закрыть</button>
+  </div>
+</div>
+
+<div class="game">
+
+  <!-- СТАРТОВЫЙ ЭКРАН -->
+  <div id="startScreen" class="start-screen">
+    <h1>⚽ Голы Мундиаля</h1>
+    <span class="difficulty-badge">🔥 ЭКСПЕРТНЫЙ РЕЖИМ</span>
+    <p class="subtitle">ЧМ-2022 · ЧМ-2026 · Все чемпионы</p>
+    <p>Вопросы для настоящих знатоков: детали матчей, минуты голов, курьёзы и малоизвестные факты.</p>
+    <p>10 случайных вопросов из банка на 50 · 4 варианта · Разные каждый раз</p>
+    <button class="big-btn" onclick="startGame()">🏁 Начать игру</button>
+    <div class="pool-info" id="poolInfo"></div>
+    <div class="facts">⚡ ЧМ-2022, ЧМ-2026 и вся история чемпионатов мира</div>
+
+    <div class="champions">
+      <h3>🏆 ВСЕ ЧЕМПИОНЫ МИРА</h3>
+      <div class="champ-grid" id="champGridStart"></div>
+    </div>
+  </div>
+
+  <!-- ЭКРАН ИГРЫ -->
+  <div id="gameScreen" class="hidden">
+    <div class="hud">
+      <div class="hud-box"><div class="label">Вопрос</div><div class="value" id="qNum">1/10</div></div>
+      <div class="hud-box"><div class="label">Очки</div><div class="value" id="score">0</div></div>
+      <div class="hud-box"><div class="label">Серия</div><div class="value" id="streak">0</div></div>
+    </div>
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+    <div class="question-card">
+      <div class="match-info" id="matchInfo"></div>
+      <div class="question-text" id="questionText"></div>
+      <div class="hint" id="hintText"></div>
+    </div>
+
+    <div class="answers" id="answers"></div>
+    <div class="feedback" id="feedback"></div>
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Следующий вопрос →</button>
+  </div>
+
+  <!-- ФИНАЛЬНЫЙ ЭКРАН -->
+  <div id="endScreen" class="end-screen hidden">
+    <div class="medal" id="medal">🏆</div>
+    <h1 id="endTitle">Игра завершена!</h1>
+    <div class="score-big" id="finalScore">0</div>
+    <p id="endMessage"></p>
+    <button class="big-btn" onclick="restart()">🔄 Играть снова</button>
+
+    <div class="champions">
+      <h3>🏆 ВСЕ ЧЕМПИОНЫ МИРА</h3>
+      <div class="champ-grid" id="champGridEnd"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+//  СПРАВОЧНИК ВСЕХ ЧЕМПИОНОВ МИРА (1930–2022)
+// ============================================================
+const CHAMPIONS = [
+  { year: 1930, flag: "🇺🇾", name: "Уругвай" },
+  { year: 1934, flag: "🇮🇹", name: "Италия" },
+  { year: 1938, flag: "🇮🇹", name: "Италия" },
+  { year: 1950, flag: "🇺🇾", name: "Уругвай" },
+  { year: 1954, flag: "🇩🇪", name: "ФРГ" },
+  { year: 1958, flag: "🇧🇷", name: "Бразилия" },
+  { year: 1962, flag: "🇧🇷", name: "Бразилия" },
+  { year: 1966, flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", name: "Англия" },
+  { year: 1970, flag: "🇧🇷", name: "Бразилия" },
+  { year: 1974, flag: "🇩🇪", name: "ФРГ" },
+  { year: 1978, flag: "🇦🇷", name: "Аргентина" },
+  { year: 1982, flag: "🇮🇹", name: "Италия" },
+  { year: 1986, flag: "🇦🇷", name: "Аргентина" },
+  { year: 1990, flag: "🇩🇪", name: "ФРГ" },
+  { year: 1994, flag: "🇧🇷", name: "Бразилия" },
+  { year: 1998, flag: "🇫🇷", name: "Франция" },
+  { year: 2002, flag: "🇧🇷", name: "Бразилия" },
+  { year: 2006, flag: "🇮🇹", name: "Италия" },
+  { year: 2010, flag: "🇪🇸", name: "Испания" },
+  { year: 2014, flag: "🇩🇪", name: "Германия" },
+  { year: 2018, flag: "🇫🇷", name: "Франция" },
+  { year: 2022, flag: "🇦🇷", name: "Аргентина" }
+];
+
+// ============================================================
+//  БАНК СЛОЖНЫХ ВОПРОСОВ (50 штук)
+//  Детали матчей, минуты голов, курьёзы, рекорды.
+// ============================================================
+const QUESTION_POOL = [
+  // ---------- ЧМ-2022: ДЕТАЛИ ----------
+  {
+    match: "ЧМ-2022 · Финал · Аргентина — Франция",
+    question: "На какой минуте Анхель Ди Мария забил второй гол Аргентины в финале ЧМ-2022?",
+    hint: "💡 Гол был забит ещё до перерыва",
+    answers: ["23-я минута", "36-я минута", "41-я минута", "45-я минута"],
+    correct: "36-я минута",
+    fact: "Ди Мария забил на 36-й минуте после контратаки — счёт стал 2:0, и Франция была на грани разгрома."
+  },
+  {
+    match: "ЧМ-2022 · Финал · Аргентина — Франция",
+    question: "На какой минуте Килиан Мбаппе сравнял счёт 2:2 в финале ЧМ-2022?",
+    hint: "💡 Второй гол Мбаппе — в концовке основного времени",
+    answers: ["80-я", "84-я", "90+1-я", "90+4-я"],
+    correct: "90+1-я",
+    fact: "Мбаппе забил на 90+1-й минуте — спустя 97 секунд после своего первого гола — и перевёл игру в овертайм."
+  },
+  {
+    match: "ЧМ-2022 · Финал",
+    question: "Кто забил единственный гол Франции в овертайме финала ЧМ-2022 (третий гол Мбаппе)?",
+    hint: "💡 Автор — сам Мбаппе, вопрос об ассисте",
+    answers: ["Усман Дембеле", "Килиан Мбаппе с пенальти", "Рандаль Коло Муани", "Маркюс Тюрам"],
+    correct: "Килиан Мбаппе с пенальти",
+    fact: "Мбаппе реализовал пенальти на 118-й минуте, оформив хет-трик в финале — счёт стал 3:3."
+  },
+  {
+    match: "ЧМ-2022 · Финал · серия пенальти",
+    question: "Какой счёт был в серии послематчевых пенальти в финале ЧМ-2022?",
+    hint: "💡 Французы не реализовали два удара",
+    answers: ["3:2", "4:2", "4:3", "5:3"],
+    correct: "4:2",
+    fact: "Аргентина победила по пенальти 4:2. У Франции промахнулись Комано и чуть не забил Тчуамени (Мартинес отбил)."
+  },
+  {
+    match: "ЧМ-2022 · 1/4 финала",
+    question: "Кто забил победный гол Аргентины в серии пенальти против Нидерландов и сколько было забито?",
+    hint: "💡 Вопрос о счёте серии пенальти",
+    answers: ["4:3", "4:2", "3:2", "5:4"],
+    correct: "4:3",
+    fact: "Аргентина выиграла серию пенальти у Нидерландов 4:3. Лаутаро Мартинес забил решающий удар."
+  },
+  {
+    match: "ЧМ-2022 · 1/8 финала",
+    question: "Какой счёт был в матче Португалия — Швейцария в 1/8 финала?",
+    hint: "💡 Разгром с хет-триком Рамуша",
+    answers: ["4:1", "5:1", "6:1", "7:1"],
+    correct: "6:1",
+    fact: "Португалия разгромила Швейцарию 6:1. Гонсалу Рамуш оформил хет-трик, ещё по голу забили Пепе, Геррейру и Леау."
+  },
+  {
+    match: "ЧМ-2022 · 1/8 финала",
+    question: "Кто забил единственный гол Испании в серии пенальти против Марокко (0:0, 0:3 по пенальти)?",
+    hint: "💡 Испанцы не забили ни одного пенальти!",
+    answers: ["Альваро Мората", "Пабло Сарабия", "Никто — 0:3", "Ферран Торрес"],
+    correct: "Никто — 0:3",
+    fact: "Марокко победило Испанию по пенальти 3:0 — испанцы не реализовали ни одного удара (Буну отбил два, один в штангу)."
+  },
+  {
+    match: "ЧМ-2022 · Групповой этап",
+    question: "С каким счётом Япония обыграла Испанию в группе E?",
+    hint: "💡 Волевая победа во втором тайме",
+    answers: ["1:0", "2:1", "2:0", "3:1"],
+    correct: "2:1",
+    fact: "Япония проигрывала 0:1, но во втором тайме перевернула игру и победила 2:1 — Доан и Танака забили."
+  },
+  {
+    match: "ЧМ-2022 · Групповой этап",
+    question: "Сколько голов забила Коста-Рика на групповом этапе ЧМ-2022?",
+    hint: "💡 Они обыграли Японию, но не вышли",
+    answers: ["1", "2", "3", "4"],
+    correct: "3",
+    fact: "Коста-Рика забила 3 гола: один в ворота Испании (0:7), один Японии (1:0) и один Германии (2:4)."
+  },
+  {
+    match: "ЧМ-2022 · Рекорд",
+    question: "Какой вратарь отразил больше всех пенальти на ЧМ-2022?",
+    hint: "💡 Герой Марокко",
+    answers: ["Эмилиано Мартинес", "Яссин Буну", "Доминик Ливакович", "Уго Льорис"],
+    correct: "Яссин Буну",
+    fact: "Яссин Буну (Марокко) отразил пенальти от Испании и стал героем серии, не пропустив ни одного гола в 1/8."
+  },
+  {
+    match: "ЧМ-2022 · Статистика",
+    question: "Сколько голов забил ЧМ-2022 в общей сложности?",
+    hint: "💡 Больше, чем на ЧМ-2018 (169)",
+    answers: ["150", "160", "172", "180"],
+    correct: "172",
+    fact: "На ЧМ-2022 забито 172 гола в 64 матчах — рекорд результативности на тот момент (среднее 2,69 за игру)."
+  },
+  {
+    match: "ЧМ-2022 · Арбитраж",
+    question: "Кто судил финал ЧМ-2022 Аргентина — Франция?",
+    hint: "💡 Польский арбитр",
+    answers: ["Шимон Марчиняк", "Даниэле Орсато", "Антонио Матеу Лаос", "Иван Бартон"],
+    correct: "Шимон Марчиняк",
+    fact: "Финал судил поляк Шимон Марчиняк — он показал 9 жёлтых карточек, рекорд для финалов ЧМ."
+  },
+
+  // ---------- ЧМ-2022: КУРЬЁЗЫ И МЕЛОЧИ ----------
+  {
+    match: "ЧМ-2022 · Групповой этап",
+    question: "Какая сборная забила больше всех голов на групповом этапе ЧМ-2022?",
+    hint: "💡 Не Аргентина и не Франция",
+    answers: ["Англия", "Испания", "Франция", "Португалия"],
+    correct: "Испания",
+    fact: "Испания забила 9 голов в группе (включая 7:0 с Коста-Рикой), но вылетела уже в 1/8 финала от Марокко."
+  },
+  {
+    match: "ЧМ-2022 · Групповой этап",
+    question: "С каким счётом Испания разгромила Коста-Рику в группе E?",
+    hint: "💡 Один из самых крупных счетов турнира",
+    answers: ["5:0", "6:0", "7:0", "8:0"],
+    correct: "7:0",
+    fact: "Испания разгромила Коста-Рику 7:0 — самый крупный счёт группового этапа ЧМ-2022."
+  },
+  {
+    match: "ЧМ-2022 · 1/8 финала",
+    question: "Сколько голов забил Гонсалу Рамуш в матче с Швейцарией (6:1)?",
+    hint: "💡 Он оформил хет-трик",
+    answers: ["2", "3", "4", "1"],
+    correct: "3",
+    fact: "Рамуш забил 3 гола (хет-трик) — первый хет-трик в плей-офф ЧМ с 1990 года (Шиллахер тогда тоже оформил)."
+  },
+  {
+    match: "ЧМ-2022 · Групповой этап",
+    question: "Кто забил единственный гол Камеруна в победе над Бразилией (1:0)?",
+    hint: "💡 Гол в компенсированное время",
+    answers: ["Венсан Абубакар", "Карл Токо Экамби", "Эрик Шупо-Мотинг", "Брайан Мбёмо"],
+    correct: "Венсан Абубакар",
+    fact: "Абубакар забил на 90+2-й минуте — Камерун стал первой африканской сборной, победившей Бразилию на ЧМ."
+  },
+  {
+    match: "ЧМ-2022 · Групповой этап",
+    question: "Какой рекорд установил вратарь Серхио Ромеро (Аргентина) на ЧМ-2022?",
+    hint: "💡 Связано с возрастом",
+    answers: [
+      "Самый молодой вратарь в истории",
+      "Самый возрастной дебютант",
+      "Первый вратарь, забивший гол",
+      "Больше всех сухих матчей"
+    ],
+    correct: "Самый возрастной дебютант",
+    fact: "Серхио Ромеро дебютировал на ЧМ в 35 лет — самый возрастной дебютант-вратарь в истории турнира."
+  },
+  {
+    match: "ЧМ-2022 · Хорватия",
+    question: "Сколько матчей на ЧМ-2022 Хорватия завершила вничью в основное время (включая овертаймы)?",
+    hint: "💡 Хорваты — короли серий пенальти",
+    answers: ["1", "2", "3", "4"],
+    correct: "4",
+    fact: "Хорватия сыграла вничью в основное время 4 матча (Марокко, Бельгия, Япония, Бразилия) — и трижды прошла по пенальти."
+  },
+  {
+    match: "ЧМ-2022 · Япония",
+    question: "Сколько раз Япония отыгрывалась со счёта 0:1 на ЧМ-2022, выигрывая матчи?",
+    hint: "💡 Против Германии и Испании",
+    answers: ["1", "2", "3", "0"],
+    correct: "2",
+    fact: "Япония дважды проигрывала 0:1 (Германии и Испании) и оба раза выигрывала 2:1 — уникальное достижение."
+  },
+  {
+    match: "ЧМ-2022 · Групповой этап",
+    question: "Какой счёт был в матче Сербия — Камерун (группа G)?",
+    hint: "💡 Результативная ничья",
+    answers: ["2:2", "3:3", "2:3", "4:4"],
+    correct: "3:3",
+    fact: "Сербия и Камерун сыграли 3:3 — один из самых результативных матчей турнира, с голами в компенсированное время."
+  },
+
+  // ---------- ЧМ-2026: СЛОЖНЫЕ ДЕТАЛИ ----------
+  {
+    match: "ЧМ-2026 · Стадионы",
+    question: "На каком стадионе пройдёт финал ЧМ-2026?",
+    hint: "💡 «Метлайф» — домашняя арена двух клубов НФЛ",
+    answers: ["«Ацтека» (Мехико)", "«Метлайф» (Нью-Джерси)", "«СоФай» (Лос-Анджелес)", "«Эй Ти энд Ти» (Даллас)"],
+    correct: "«Метлайф» (Нью-Джерси)",
+    fact: "Финал ЧМ-2026 пройдёт 19 июля 2026 года на стадионе «Метлайф» в Ист-Ратерфорде (Нью-Джерси)."
+  },
+  {
+    match: "ЧМ-2026 · Формат плей-офф",
+    question: "Сколько матчей добавится в плей-офф ЧМ-2026 по сравнению с ЧМ-2022?",
+    hint: "💡 В 2022 было 15 матчей плей-офф, в 2026 — 31",
+    answers: ["8", "12", "16", "20"],
+    correct: "16",
+    fact: "В плей-офф ЧМ-2026 будет 31 матч против 15 в 2022 году — на 16 матчей больше, включая новый раунд 1/16 финала."
+  },
+  {
+    match: "ЧМ-2026 · Квалификация",
+    question: "Сколько путёвок на ЧМ-2026 получит Азия (АФК)?",
+    hint: "💡 Было 4,5 — стало больше чем в два раза",
+    answers: ["6", "7", "8,5", "10"],
+    correct: "8,5",
+    fact: "АФК получит 8 прямых путёвок плюс одну в стыковых матчах (итого 8,5) — против 4,5 на ЧМ-2022."
+  },
+  {
+    match: "ЧМ-2026 · Квалификация",
+    question: "Сколько путёвок на ЧМ-2026 получит КОНКАКАФ (Северная Америка)?",
+    hint: "💡 Три хозяина + ещё несколько мест",
+    answers: ["3", "4", "6", "8"],
+    correct: "6",
+    fact: "КОНКАКАФ получит 6 прямых путёвок (3 у хозяев, 3 от отбора) плюс 2 места в стыковых матчах."
+  },
+  {
+    match: "ЧМ-2026 · Квалификация",
+    question: "Сколько всего путёвок через межконтинентальные стыковые матчи разыграют на ЧМ-2026?",
+    hint: "💡 Шесть команд борются за два места",
+    answers: ["2", "4", "6", "8"],
+    correct: "2",
+    fact: "6 сборных сыграют в межконтинентальном плей-офф за 2 путёвки на ЧМ-2026 (по одной от каждой конфедерации, кроме УЕФА)."
+  },
+  {
+    match: "ЧМ-2026 · Города",
+    question: "Сколько городов примут матчи ЧМ-2026?",
+    hint: "💡 11 в США, 3 в Мексике, 2 в Канаде",
+    answers: ["12", "14", "16", "18"],
+    correct: "16",
+    fact: "Матчи ЧМ-2026 примут 16 городов: 11 в США, 3 в Мексике (Мехико, Гвадалахара, Монтеррей) и 2 в Канаде (Торонто, Ванкувер)."
+  },
+  {
+    match: "ЧМ-2026 · «Ацтека»",
+    question: "Какое уникальное достижение будет у стадиона «Ацтека» на ЧМ-2026?",
+    hint: "💡 Он уже принимал ЧМ в 1970 и 1986",
+    answers: [
+      "Первый стадион, принявший три ЧМ",
+      "Самый большой стадион в истории",
+      "Первый стадион с крышей",
+      "Первый стадион за пределами Европы"
+    ],
+    correct: "Первый стадион, принявший три ЧМ",
+    fact: "«Ацтека» в Мехико примет матч открытия ЧМ-2026 — первый стадион в истории, принявший три чемпионата мира (1970, 1986, 2026)."
+  },
+
+  // ---------- ИСТОРИЯ: СЛОЖНЫЕ ДЕТАЛИ ----------
+  {
+    match: "ЧМ-1950 · «Мараканасо»",
+    question: "С каким счётом Уругвай обыграл Бразилию в решающем матче ЧМ-1950?",
+    hint: "💡 Бразилии достаточно было ничьей",
+    answers: ["1:0", "2:1", "3:2", "2:0"],
+    correct: "2:1",
+    fact: "Уругвай победил Бразилию 2:1 на «Маракане» перед 200 тыс. зрителей. Этот матч называют «Мараканасо»."
+  },
+  {
+    match: "ЧМ-1954 · «Чудо в Берне»",
+    question: "С каким счётом ФРГ обыграла Венгрию в финале ЧМ-1954?",
+    hint: "💡 Венгрия вела 2:0, но проиграла",
+    answers: ["2:1", "3:2", "4:2", "3:1"],
+    correct: "3:2",
+    fact: "ФРГ отыгралась с 0:2 и победила Венгрию 3:2 в финале — «Чудо в Берне». Венгрия не проигрывала 4 года до этого."
+  },
+  {
+    match: "ЧМ-1966 · Финал",
+    question: "С каким счётом Англия обыграла ФРГ в финале ЧМ-1966?",
+    hint: "💡 Знаменитый «гол Уэмбли» и овертайм",
+    answers: ["2:1", "3:2", "4:2", "4:3"],
+    correct: "4:2",
+    fact: "Англия победила ФРГ 4:2 в овертайме. Гол Хёрста, спорный «гол Уэмбли», до сих пор обсуждают."
+  },
+  {
+    match: "ЧМ-1970 · Финал",
+    question: "С каким счётом Бразилия разгромила Италию в финале ЧМ-1970?",
+    hint: "💡 Гол Карлоса Альберто — один из красивейших в истории",
+    answers: ["3:1", "4:1", "4:2", "5:1"],
+    correct: "4:1",
+    fact: "Бразилия победила Италию 4:1 в финале ЧМ-1970. Гол Карлоса Альберто после 8 передач считается одним из величайших."
+  },
+  {
+    match: "ЧМ-1986 · «Гол века»",
+    question: "Против какой сборной Марадона забил «Гол века» на ЧМ-1986?",
+    hint: "💡 Тот же матч, где был «Рука Бога»",
+    answers: ["Бельгия", "Англия", "ФРГ", "Бразилия"],
+    correct: "Англия",
+    fact: "В 1/4 финала ЧМ-1986 Марадона забил Англии и «Руку Бога», и «Гол века» — обыграв полкоманды."
+  },
+  {
+    match: "ЧМ-1990 · Финал",
+    question: "Кто забил единственный гол в финале ЧМ-1990 ФРГ — Аргентина (1:0)?",
+    hint: "💡 Пенальти на 85-й минуте",
+    answers: ["Лотар Маттеус", "Андреас Бреме", "Юрген Клинсманн", "Руди Фёллер"],
+    correct: "Андреас Бреме",
+    fact: "Андреас Бреме забил с пенальти на 85-й минуте — единственный гол финала ЧМ-1990."
+  },
+  {
+    match: "ЧМ-1994 · Финал",
+    question: "Кто промахнулся с решающего пенальти в финале ЧМ-1994 Италия — Бразилия?",
+    hint: "💡 Легендарный форвард, «хвостатая комета»",
+    answers: ["Роберто Баджо", "Франко Барези", "Даниэле Массаро", "Деметрио Альбертини"],
+    correct: "Роберто Баджо",
+    fact: "Роберто Баджо промахнулся с решающего пенальти — Бразилия выиграла 3:2 по пенальти и стала чемпионом."
+  },
+  {
+    match: "ЧМ-1998 · Финал",
+    question: "Сколько голов забил Зинедин Зидан в финале ЧМ-1998?",
+    hint: "💡 Два гола головой после угловых",
+    answers: ["1", "2", "3", "0"],
+    correct: "2",
+    fact: "Зидан забил два гола головой после угловых — Франция разгромила Бразилию 3:0 в финале ЧМ-1998."
+  },
+  {
+    match: "ЧМ-2002 · Финал",
+    question: "Сколько голов забил Роналдо на ЧМ-2002?",
+    hint: "💡 Лучший бомбардир турнира",
+    answers: ["6", "7", "8", "9"],
+    correct: "8",
+    fact: "Роналдо забил 8 голов на ЧМ-2002, включая дубль в финале против Германии (2:0) — лучший бомбардир турнира."
+  },
+  {
+    match: "ЧМ-2006 · Финал",
+    question: "За что Зинедин Зидан получил красную карточку в финале ЧМ-2006?",
+    hint: "💡 Удар головой в грудь соперника",
+    answers: [
+      "За удар головой Матерацци",
+      "За вторую жёлтую",
+      "За фол последней надежды",
+      "За драку с вратарём"
+    ],
+    correct: "За удар головой Матерацци",
+    fact: "Зидан ударил головой Марко Матерацци в грудь после провокации и был удалён в овертайме финала ЧМ-2006. Италия выиграла по пенальти."
+  },
+  {
+    match: "ЧМ-2010 · Финал",
+    question: "На какой минуте Андрес Иньеста забил победный гол в финале ЧМ-2010?",
+    hint: "💡 Гол в дополнительное время",
+    answers: ["90+2-я", "105-я", "116-я", "120-я"],
+    correct: "116-я",
+    fact: "Иньеста забил на 116-й минуте овертайма — Испания победила Нидерланды 1:0 и впервые стала чемпионом мира."
+  },
+  {
+    match: "ЧМ-2014 · Полуфинал",
+    question: "С каким счётом Германия разгромила Бразилию в полуфинале ЧМ-2014?",
+    hint: "💡 Исторический разгром хозяев",
+    answers: ["5:0", "6:1", "7:1", "8:2"],
+    correct: "7:1",
+    fact: "Германия разгромила Бразилию 7:1 в полуфинале ЧМ-2014 — крупнейшее поражение хозяев в истории турнира («Минасо»)."
+  },
+  {
+    match: "ЧМ-2014 · Финал",
+    question: "Кто забил победный гол Германии в финале ЧМ-2014 против Аргентины?",
+    hint: "💡 Гол в дополнительное время",
+    answers: ["Томас Мюллер", "Марио Гётце", "Андре Шюррле", "Мирослав Клозе"],
+    correct: "Марио Гётце",
+    fact: "Марио Гётце забил на 113-й минуте — Германия победила Аргентину 1:0 и стала 4-кратным чемпионом мира."
+  },
+  {
+    match: "ЧМ-2018 · Финал",
+    question: "С каким счётом Франция обыграла Хорватию в финале ЧМ-2018?",
+    hint: "💡 Самый результативный финал с 1966 года",
+    answers: ["3:1", "4:2", "4:1", "3:2"],
+    correct: "4:2",
+    fact: "Франция победила Хорватию 4:2 в финале ЧМ-2018 — самый результативный финал с 1966 года."
+  },
+  {
+    match: "История ЧМ · Рекорд голов",
+    question: "Кто является лучшим бомбардиром в истории чемпионатов мира?",
+    hint: "💡 Немецкий форвард, 16 голов",
+    answers: ["Роналдо", "Мирослав Клозе", "Герд Мюллер", "Пеле"],
+    correct: "Мирослав Клозе",
+    fact: "Мирослав Клозе забил 16 голов на ЧМ (2002–2014) — рекорд. Роналдо — 15, Герд Мюллер — 14, Пеле — 12."
+  },
+  {
+    match: "История ЧМ · Рекорд матчей",
+    question: "Кто провёл больше всех матчей в истории чемпионатов мира?",
+    hint: "💡 Аргентинец, 26 игр",
+    answers: ["Лотар Маттеус", "Лионель Месси", "Паоло Мальдини", "Криштиану Роналду"],
+    correct: "Лионель Месси",
+    fact: "Лионель Месси провёл 26 матчей на ЧМ (2006–2022) — рекорд. Маттеус — 25, Роналду — 22."
+  },
+  {
+    match: "История ЧМ · Единственный случай",
+    question: "Какая сборная выигрывала ЧМ, не проиграв ни одного матча, но и не выиграв финал в основное время?",
+    hint: "💡 Победила по пенальти в финале",
+    answers: ["Италия-2006", "Бразилия-1994", "Аргентина-2022", "Все три"],
+    correct: "Все три",
+    fact: "Италия-2006, Бразилия-1994 и Аргентина-2022 выиграли финалы по пенальти — все три стали чемпионами, не победив в финале в основное время."
+  },
+  {
+    match: "История ЧМ · Автоголы",
+    question: "Сколько автоголов было забито на ЧМ-2018?",
+    hint: "💡 Рекордное количество для турнира",
+    answers: ["6", "8", "12", "15"],
+    correct: "12",
+    fact: "На ЧМ-2018 зафиксировано 12 автоголов — рекорд для одного турнира (предыдущий рекорд — 6)."
+  },
+  {
+    match: "История ЧМ · Хет-трики",
+    question: "Кто забил последний хет-трик в финале чемпионата мира до Мбаппе (2022)?",
+    hint: "💡 Англичанин в 1966 году",
+    answers: ["Джефф Хёрст", "Герд Мюллер", "Пеле", "Роналдо"],
+    correct: "Джефф Хёрст",
+    fact: "Джефф Хёрст забил хет-трик в финале ЧМ-1966. Мбаппе в 2022-м стал первым с тех пор, кто повторил это достижение."
+  },
+  {
+    match: "История ЧМ · «Золотая богиня»",
+    question: "Почему Бразилия навсегда получила «Золотую богиню Нике» после ЧМ-1970?",
+    hint: "💡 Правило трёх титулов",
+    answers: [
+      "За третий титул чемпиона мира",
+      "За победу над Италией",
+      "За 100 голов на ЧМ",
+      "За победу во всех матчах"
+    ],
+    correct: "За третий титул чемпиона мира",
+    fact: "По правилам ФИФА, сборная, выигравшая ЧМ трижды, получала «Золотую богиню» навсегда. Бразилия сделала это в 1970-м."
+  },
+  {
+    match: "История ЧМ · Дебют",
+    question: "Какая сборная выиграла ЧМ в своём первом же участии?",
+    hint: "💡 Хозяева первого турнира",
+    answers: ["Уругвай-1930", "Италия-1934", "Бразилия-1958", "Аргентина-1978"],
+    correct: "Уругвай-1930",
+    fact: "Уругвай выиграл первый же ЧМ-1930, в котором участвовал. Италия-1934 тоже выиграла дебютный для себя турнир."
+  },
+  {
+    match: "История ЧМ · Серия",
+    question: "Сколько чемпионатов мира подряд выигрывала Бразилия в 1958–1970 годах?",
+    hint: "💡 1958, 1962, 1970 — но был перерыв",
+    answers: ["2", "3", "4", "1"],
+    correct: "3",
+    fact: "Бразилия выиграла ЧМ-1958, 1962 и 1970. В 1966-м она не вышла из группы — единственный такой провал в её истории до 2022."
+  },
+  {
+    match: "История ЧМ · Финал без голов",
+    question: "Сколько финалов ЧМ завершились вничью в основное время (0:0) и решились по пенальти?",
+    hint: "💡 1994 и 2006",
+    answers: ["1", "2", "3", "4"],
+    correct: "2",
+    fact: "Два финала закончились 0:0 и решились по пенальти: ЧМ-1994 (Бразилия — Италия) и ЧМ-2006 (Италия — Франция)."
+  }
+];
+
+// ============================================================
+//  НАСТРОЙКИ
+// ============================================================
+const QUESTIONS_PER_GAME = 10;
+
+let gameQuestions = [];
+let current = 0;
+let score = 0;
+let streak = 0;
+let maxStreak = 0;
+let answered = false;
+
+// ============================================================
+//  УТИЛИТЫ
+// ============================================================
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function shuffleAnswers(q) {
+  return { ...q, answers: shuffle(q.answers) };
+}
+function buildGameSet() {
+  const picked = shuffle(QUESTION_POOL).slice(0, QUESTIONS_PER_GAME);
+  return picked.map(shuffleAnswers);
+}
+
+// ============================================================
+//  ЭЛЕМЕНТЫ
+// ============================================================
+const startScreen = document.getElementById('startScreen');
+const gameScreen = document.getElementById('gameScreen');
+const endScreen = document.getElementById('endScreen');
+const qNumEl = document.getElementById('qNum');
+const scoreEl = document.getElementById('score');
+const streakEl = document.getElementById('streak');
+const progressBar = document.getElementById('progressBar');
+const matchInfoEl = document.getElementById('matchInfo');
+const questionTextEl = document.getElementById('questionText');
+const hintTextEl = document.getElementById('hintText');
+const answersEl = document.getElementById('answers');
+const feedbackEl = document.getElementById('feedback');
+const nextBtn = document.getElementById('nextBtn');
+const poolInfo = document.getElementById('poolInfo');
+
+poolInfo.textContent = `📚 Банк: ${QUESTION_POOL.length} сложных вопросов · каждый раз новые`;
+
+// ============================================================
+//  РЕНДЕР ТАБЛИЦЫ ЧЕМПИОНОВ
+// ============================================================
+function renderChampGrid(container) {
+  container.innerHTML = '';
+  CHAMPIONS.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'champ-item' + (c.year === 2022 ? ' gold' : '');
+    div.innerHTML = `
+      <div class="champ-year">${c.year}</div>
+      <div class="champ-flag">${c.flag}</div>
+      <div class="champ-name">${c.name}</div>
+    `;
+    container.appendChild(div);
+  });
+}
+renderChampGrid(document.getElementById('champGridStart'));
+renderChampGrid(document.getElementById('champGridEnd'));
+renderChampGrid(document.getElementById('champGridModal'));
+
+// ============================================================
+//  МОДАЛКА
+// ============================================================
+function toggleChampionsModal() {
+  document.getElementById('champModal').classList.toggle('hidden');
+}
+
+// ============================================================
+//  ЛОГИКА ИГРЫ
+// ============================================================
+function startGame() {
+  gameQuestions = buildGameSet();
+  current = 0;
+  score = 0;
+  streak = 0;
+  maxStreak = 0;
+  answered = false;
+  startScreen.classList.add('hidden');
+  endScreen.classList.add('hidden');
+  gameScreen.classList.remove('hidden');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  answered = false;
+  const q = gameQuestions[current];
+
+  qNumEl.textContent = `${current + 1}/${gameQuestions.length}`;
+  scoreEl.textContent = score;
+  streakEl.textContent = streak;
+  progressBar.style.width = `${(current / gameQuestions.length) * 100}%`;
+
+  matchInfoEl.textContent = q.match;
+  questionTextEl.textContent = q.question;
+  hintTextEl.textContent = q.hint;
+
+  answersEl.innerHTML = '';
+  feedbackEl.className = 'feedback';
+  feedbackEl.textContent = '';
+  nextBtn.classList.remove('show');
+
+  q.answers.forEach((ans) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.textContent = ans;
+    btn.onclick = () => selectAnswer(ans, btn);
+    answersEl.appendChild(btn);
+  });
+}
+
+function selectAnswer(chosen, btn) {
+  if (answered) return;
+  answered = true;
+
+  const q = gameQuestions[current];
+  const buttons = answersEl.querySelectorAll('.answer-btn');
+  buttons.forEach(b => b.disabled = true);
+
+  if (chosen === q.correct) {
+    btn.classList.add('correct');
+    score += 10;
+    streak++;
+    if (streak > maxStreak) maxStreak = streak;
+    if (streak >= 3) score += 5;
+    feedbackEl.className = 'feedback ok show';
+    feedbackEl.innerHTML = `✅ <strong>Верно!</strong> ${q.fact}`;
+  } else {
+    btn.classList.add('wrong');
+    buttons.forEach(b => {
+      if (b.textContent === q.correct) b.classList.add('correct');
+    });
+    streak = 0;
+    feedbackEl.className = 'feedback bad show';
+    feedbackEl.innerHTML = `❌ <strong>Неверно.</strong> Правильный ответ: <strong>${q.correct}</strong>. ${q.fact}`;
+  }
+
+  scoreEl.textContent = score;
+  streakEl.textContent = streak;
+  nextBtn.classList.add('show');
+}
+
+function nextQuestion() {
+  current++;
+  if (current >= gameQuestions.length) {
+    showEnd();
+  } else {
+    renderQuestion();
+  }
+}
+
+function showEnd() {
+  gameScreen.classList.add('hidden');
+  endScreen.classList.remove('hidden');
+  progressBar.style.width = '100%';
+
+  const finalEl = document.getElementById('finalScore');
+  const titleEl = document.getElementById('endTitle');
+  const msgEl = document.getElementById('endMessage');
+  const medalEl = document.getElementById('medal');
+
+  finalEl.textContent = `${score} очков`;
+
+  if (score >= 110) {
+    medalEl.textContent = '🏆';
+    titleEl.textContent = 'Абсолютный эксперт!';
+    msgEl.textContent = `Феноменально! Максимальная серия: ${maxStreak}. Ты знаешь о ЧМ больше, чем некоторые комментаторы!`;
+  } else if (score >= 80) {
+    medalEl.textContent = '🥇';
+    titleEl.textContent = 'Гуру Мундиаля!';
+    msgEl.textContent = `Отличный результат! Максимальная серия: ${maxStreak}. Такие детали помнят единицы.`;
+  } else if (score >= 50) {
+    medalEl.textContent = '🥈';
+    titleEl.textContent = 'Крепкий знаток!';
+    msgEl.textContent = `Хорошо! Максимальная серия: ${maxStreak}. Экспертный режим — это непросто, ты справился достойно.`;
+  } else {
+    medalEl.textContent = '🥉';
+    titleEl.textContent = 'Есть куда расти';
+    msgEl.textContent = `Максимальная серия: ${maxStreak}. Эти вопросы — для настоящих фанатов. Пересмотри архивы ЧМ и возвращайся!`;
+  }
+}
+
+function restart() {
+  endScreen.classList.add('hidden');
+  startScreen.classList.remove('hidden');
+}
+
+// Анимация мяча
+window.addEventListener('load', () => {
+  const bg = document.querySelector('.bg-ball');
+  if (bg) bg.classList.add('floating');
+});
+</script>
+</body>
+</html>
